@@ -1,0 +1,13 @@
+{
+  "$schema": "./node_modules/oxfmt/configuration_schema.json",
+  "printWidth": 80,
+  "singleQuote": true,
+  "ignorePatterns": [
+    "dist/**",
+    "docs/coverage-summary.json",
+    "docs/validation-results.json",
+    "package-lock.json",
+    "src/protocol/schema.json",
+    "src/protocol/provenance.json"
+  ]
+}

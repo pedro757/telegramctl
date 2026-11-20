@@ -1,0 +1,29 @@
+{
+  "verifiedAt": "2026-11-20T14:00:39.518115967Z",
+  "node": "v26.13.1",
+  "passed": true,
+  "checks": {
+    "command": "node scripts/check.ts",
+    "exitCode": 0,
+    "summary": "Checked 28 TypeScript modules: syntax, 80-column limit, zero runtime npm dependencies, built-in/local imports, native Temporal policy, isolated credential-helper subprocess boundary, no eval, and pinned schema integrity."
+  },
+  "tests": {
+    "command": "node --test --test-reporter=tap 'tests/**/*.test.ts'",
+    "exitCode": 0,
+    "tests": 150,
+    "pass": 150,
+    "fail": 0,
+    "cancelled": 0,
+    "skipped": 0,
+    "todo": 0
+  },
+  "scope": "Offline fixtures/mocked Telegram clients and transports; no real account, credential store or live Telegram connection used.",
+  "liveInteroperabilityVerified": false,
+  "independentSecurityAuditComplete": false,
+  "schema": {
+    "layer": 232,
+    "sha256": "15248422295102a78891723dfed372dc38b70cb613803a147bb6d4fec904124d",
+    "constructors": 1030,
+    "rpcDefinitions": 43
+  }
+}

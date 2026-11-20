@@ -1,0 +1,44 @@
+{
+  "name": "telegram",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Dependency-free Telegram CLI and agent skill",
+  "license": "MIT",
+  "bin": {
+    "telegram": "dist/bin/telegram.js"
+  },
+  "files": [
+    "dist/bin",
+    "dist/src",
+    "dist/native/telegram-os",
+    "dist/native/telegram-os.exe",
+    "SKILL.md",
+    "SECURITY.md",
+    "THIRD-PARTY-NOTICES.md"
+  ],
+  "type": "module",
+  "scripts": {
+    "test": "node --test \"tests/**/*.test.ts\"",
+    "verify": "node scripts/verify.ts",
+    "check": "npm run check:source && npm run check:tools",
+    "check:source": "node scripts/check.ts",
+    "check:tools": "npm run lint && npm run format:check && npm run typecheck",
+    "lint": "oxlint --type-aware --deny-warnings bin src scripts tests",
+    "format": "oxfmt \"{bin,src,scripts,tests}/**/*.ts\" \"*.json\" \".ox*.json\"",
+    "format:check": "npm run format -- --check",
+    "typecheck": "tsrs --noEmit --fast",
+    "build": "tsrs --noEmit false && node scripts/build.ts",
+    "build:native": "node scripts/build.ts --native-only",
+    "start": "node bin/telegram.ts",
+    "schema": "node scripts/schema.ts"
+  },
+  "devDependencies": {
+    "@types/node": "26.6.6",
+    "oxfmt": "0.79.0",
+    "oxlint": "1.94.0",
+    "tsrs": "7.1.0-beta.tsrs3"
+  },
+  "engines": {
+    "node": ">=26.0.0"
+  }
+}

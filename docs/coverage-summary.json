@@ -1,0 +1,10 @@
+{
+  "verifiedAt": "2026-11-20T14:00:39.518115967Z",
+  "node": "v26.13.1",
+  "command": "node --test --experimental-test-coverage --test-coverage-include='src/**' --test-reporter=spec 'tests/**/*.test.ts'",
+  "passed": true,
+  "linePercent": 93.79,
+  "branchPercent": 82.15,
+  "functionPercent": 94.83,
+  "scope": "Offline TypeScript source coverage only. Fake credential managers/subprocesses; not real credential-store integration, live interoperability, protocol correctness, native cryptographic implementation coverage, or independent security certification."
+}
