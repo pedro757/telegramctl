@@ -1,230 +1,190 @@
 # telegramctl
 
-Use your existing Telegram account from the terminal. Read your inbox without marking messages as read, search chats, send messages and files, or save a copy of your history.
-
-Requires **Node.js 26.0.0 or newer**. Runs on Linux, macOS 13+ (Intel or Apple
-silicon), and Windows (x64 or ARM64). No runtime npm dependencies.
+Use Telegram from your terminal. Read your inbox without marking messages as
+read, search your chats, send files, or save a local copy of your history.
 
 ## Get started
 
-**1. Install from npm**
+You’ll need **Node.js 26 or newer**. The CLI runs on Linux, macOS 13+ (Intel
+and Apple silicon), and Windows (x64 and ARM64). You don’t need a compiler.
 
 ```sh
 npm install -g telegramctl
-telegramctl --help
 ```
 
-The npm package installs the `telegramctl` command and includes the macOS and
-Windows helpers. No checkout, compiler, or build step is needed.
+> If npm says the package isn’t available yet, download the
+> `telegramctl-npm` artifact from a successful
+> [GitHub Actions run](https://github.com/pedro757/telegramctl/actions),
+> unzip it, and run `npm install -g ./telegramctl-0.1.0.tgz`.
 
-**2. Sign in**
-
-Get your API ID and API hash from [my.telegram.org/apps](https://my.telegram.org/apps), then run:
+Get an **API ID and API hash** from [my.telegram.org/apps](https://my.telegram.org/apps).
+Then sign in and take a look at your inbox:
 
 ```sh
 telegramctl auth login
 telegramctl auth check
+telegramctl inbox
 ```
 
-`auth login` asks for your API credentials, phone number, login code, and Telegram 2FA password if you use one. Enter them directly in your terminal.
+Enter your API credentials, phone number, login code, and any Telegram 2FA
+password directly in your terminal. `auth check` verifies the saved login
+without reading your chats. On Linux, the default login store needs
+`secret-tool` (from libsecret) and a running Secret Service keyring. macOS
+and Windows use their built-in credential stores.
 
-By default, the CLI saves your login in the native credential store:
+> The CLI has been tested offline, not with a live Telegram account or an
+> independent security audit. Start with a disposable account.
 
-| OS | Default store | Default state directory |
+## Read, reply, and save files
+
+Start with `telegramctl chats` to find a chat ID. The examples below use
+`channel:123` for a channel or supergroup and `456` for a message ID. Use
+`user:123` for a person, `chat:123` for a basic group, or `self` for Saved
+Messages. You can also use an `@username` or an exact, unique chat title.
+
+```sh
+telegramctl read channel:123 --limit 20
+telegramctl search "deadline" --chat channel:123
+telegramctl reply channel:123 456 -m "Sounds good"
+telegramctl send self -f ./report.pdf
+telegramctl download channel:123 456
+```
+
+- **Search:** Use `--all` instead of `--chat` to search across chats. Add
+  `--since 1d` to `read` to see only messages from the last day.
+- **Send:** `-f` attaches one file up to **100 MiB**; add `-m` for a caption.
+  For sensitive text, use `--stdin` or run `telegramctl send <peer>` for a
+  hidden prompt. Text passed with `-m` can appear in your shell history.
+- **Download:** Saves one attachment up to **20 MiB** to your system Downloads
+  folder and prints its path. Use `-o <directory>` to save it elsewhere.
+  Downloads never overwrite or open files. Protected or disappearing media
+  are not supported.
+- **Delete:** Use `telegramctl delete <peer> <message-id> --for-me` to remove
+  your copy, or `--for-everyone` where Telegram allows it. Channels and
+  supergroups require `--for-everyone`.
+
+**Commands that change your account act immediately.** Check the account and
+recipient first. If a send or deletion times out, check the chat before retrying.
+
+## More commands
+
+| What you want to do | Command |
+| --- | --- |
+| See which account you’re using | `telegramctl auth whoami` |
+| Sign this CLI out | `telegramctl auth logout` |
+| List your folders | `telegramctl folder list` |
+| Show a folder | `telegramctl folder show folder:2` |
+| Add a chat to a folder | `telegramctl folder add folder:2 channel:123` |
+| List groups you administer | `telegramctl group list --admin` |
+| See a group’s members or admins | `telegramctl group members channel:123` or `telegramctl group admins channel:123` |
+| Mute a chat for an hour | `telegramctl mute channel:123 --duration 1h` |
+
+Run `telegramctl --help` to see all commands, or try `telegramctl folder --help`
+and `telegramctl group --help` for their subcommands. Add `--json` for scripts.
+To remove a mute, run `telegramctl unmute <peer>`.
+
+`group promote` requires explicit `--rights`, and `group transfer-owner`
+requires Telegram 2FA. In a supergroup or channel, `group kick` is a permanent
+viewing ban, not just a removal.
+
+### Export a chat
+
+```sh
+telegramctl export --chat channel:123 --all -o ./telegram-archive
+```
+
+Without `--all`, `--days`, or `--since`, the export covers the last seven days.
+Without `--chat`, it covers all discovered chats. To add newer messages later,
+run the same command with `--resume`. It won’t fill older gaps or mirror edits
+and deletions. Exports are **plain-text JSONL**, so keep them private and out
+of Git. Attachments appear as metadata, not downloaded files.
+
+<details>
+<summary>Login storage, gopass, and troubleshooting</summary>
+
+| OS | Default credential store | Local state directory |
 | --- | --- | --- |
-| Linux | Secret Service via `/usr/bin/secret-tool` (libsecret) | `~/.local/state/telegram` |
+| Linux | Secret Service via `/usr/bin/secret-tool` | `~/.local/state/telegram` |
 | macOS | Keychain | `~/Library/Application Support/TelegramCLI` |
-| Windows | Credential Manager (Windows Credentials) | `%LOCALAPPDATA%\TelegramCLI` |
+| Windows | Credential Manager | `%LOCALAPPDATA%\TelegramCLI` |
 
-Linux needs a working Secret Service provider. On macOS, approve a Keychain
-prompt only if you launched this trusted build; rebuilding the helper can
-trigger a new prompt. On Windows, use an attached Windows Terminal or console
-for sign-in. Keep state, downloads and exports on a local NTFS drive in a
-private location, not in a network share or a junction/reparse-point path.
+The state directory holds preferences, a login reference, and audit metadata,
+not the credentials. To keep separate logins, pass the same
+`--state-dir <private-directory>` at sign-in and on later commands for that
+account. Copying the directory to another OS doesn’t move the login.
 
-**gopass 1.17 or later** is available on all three platforms. Set up an
-encrypted gopass store, then choose it with `telegramctl auth login --store gopass`.
-Linux uses `/usr/bin/gopass`; macOS checks the
-Homebrew and MacPorts locations. On Windows, set `TELEGRAMCTL_GOPASS_PATH` to
-the full path of the actual trusted `gopass.exe`, for example in PowerShell:
+If you already use an encrypted **gopass 1.17+** store, sign in with
+`telegramctl auth login --store gopass`. Linux uses `/usr/bin/gopass`; macOS
+checks common Homebrew and MacPorts paths. On Windows, set the path to the
+trusted executable before signing in:
 
 ```powershell
 $env:TELEGRAMCTL_GOPASS_PATH = 'C:\Tools\gopass\gopass.exe'
 telegramctl auth login --store gopass
 ```
 
-If PowerShell blocks npm's `.ps1` launcher scripts, use `npm.cmd` and
-`telegramctl.cmd`.
+You can use `TELEGRAMCTL_GOPASS_PATH` to override the path on Linux and macOS
+too. Keep it set when using that login. The CLI never silently switches
+stores or falls back to a plaintext credential file.
 
-Use the same variable on Linux or macOS to override the executable path.
-Keep it set for later commands using that profile. This variable names an
-executable, not a secret. The CLI never falls back to a plaintext credential
-file or changes the saved backend automatically.
+- **Windows:** Sign in from Windows Terminal or another attached console. Keep
+  state and output on a private local NTFS path, not a network share or
+  junction. If PowerShell blocks `.ps1` launchers, use `npm.cmd` and
+  `telegramctl.cmd`.
+- **macOS:** Only approve a Keychain prompt if you recognize the build you
+  launched. Rebuilding the native helper can trigger another prompt.
+- **Downloads:** If your Downloads folder is a symlink or is writable by
+  others, choose a safe directory with `-o`.
+- **Recovery:** `auth logout` revokes this CLI’s Telegram session, not other
+  devices. `auth forget-local` deletes the saved login after confirmation but
+  does **not** revoke it. `auth migrate --from <file>` imports a supported
+  owner-only legacy config without touching the original. If you have an old
+  `session.enc.json` vault, sign in again. Use Telegram’s **Settings → Devices**
+  to end old sessions.
 
-> This client has been tested offline, but not against a live Telegram account or by an independent security auditor. Start with a disposable account.
+</details>
 
-**3. Find your chats**
+## Use with OpenCode
 
-```sh
-telegramctl inbox
-telegramctl chats --json
-```
-
-Use IDs from `chats` in the examples below: `user:123` for a person, `chat:123` for a basic group, and `channel:123` for a supergroup or channel. You can also use `@username` or `self` for Saved Messages. Exact chat titles work when they're unique.
-
-## Everyday commands
-
-### Read and search
-
-```sh
-telegramctl read channel:123 --limit 20 --since 1d
-telegramctl search "deadline" --chat channel:123
-telegramctl search "deadline" --all
-```
-
-Use `--json` for scripts or `--markdown` for a fenced JSON block. `--quiet` hides progress messages, not warnings. `telegramctl <command> --help` shows usage for that command.
-
-### Download a message attachment
-
-```sh
-telegramctl read channel:123 --limit 20 --json
-telegramctl download channel:123 456
-telegramctl download channel:123 457 -o "$HOME/telegram-media"
-```
-
-Use the message ID from `read` or `search`. `download` saves one directly
-attached file of any format, up to **20 MiB**, and prints its local path.
-For photos, it saves the largest available size. Paths use the chat and
-message IDs rather than the sender's filename. If no usable extension is
-available, or a recognized image or audio type doesn't match its header, the
-file gets `.bin`. By default it saves directly to the system Downloads folder
-(the configured XDG Downloads folder on Linux, `~/Downloads` on macOS, and
-the Downloads Known Folder on Windows). Use `-o`/`--output` to choose another
-directory. The CLI creates a private directory if it doesn't exist, writes
-private files, and never overwrites an existing file. It doesn't automatically
-open anything or mark messages as read or played. If the system folder is a
-symlink or is writable by other users, choose a safe directory with `-o`.
-Protected or disappearing media, link previews, and Telegram CDN downloads
-aren't supported.
-
-### Send a message or file
-
-```sh
-telegramctl send @username -m "Are we still on for Friday?"
-telegramctl reply channel:123 456 -m "Sounds good"
-telegramctl send @username -f "$HOME/Documents/report.pdf"
-telegramctl reply channel:123 456 -f "$HOME/Documents/report.pdf" -m "Here's the report"
-```
-
-For replies, `456` is the original message ID. `-f` / `--file` sends one nonempty local file up to **100 MiB** as a document, even if it's a photo or video. No temporary copy is made.
-
-Text passed with `-m` / `--message` can show up in shell history or process listings. For sensitive text, use `--stdin` or run `telegramctl send @username` for a hidden prompt. With a file and no text option, the file goes out without a caption.
-
-**Account changes don't ask for confirmation.** Check the account and recipient before sending. If a send times out after submission, check the chat before trying again.
-
-### Delete a message
-
-```sh
-telegramctl delete user:123 456 --for-me
-telegramctl delete channel:123 456 --for-everyone
-```
-
-Use the chat and message IDs from `read` or `search`. The CLI verifies that
-the message belongs to that chat. `--for-me` only removes your copy and is
-not available in channels or supergroups. `--for-everyone` requests removal
-for all participants and is subject to Telegram's permissions. Choose one
-scope explicitly: the command submits immediately and doesn't undo deletions
-or delete existing local downloads and exports. If the result is uncertain,
-check the chat before retrying.
-
-### Organize chat folders
-
-```sh
-telegramctl folder list
-telegramctl folder show folder:2
-telegramctl folder create "Work" --include channel:123
-telegramctl folder add folder:2 channel:456
-telegramctl folder remove folder:2 channel:456
-```
-
-Use the folder ID from `folder list`. For a folder named `list`, `show`, or
-another subcommand name, use `folder show "<name>"` explicitly.
-
-### Inspect and manage groups
-
-```sh
-telegramctl group list --admin
-telegramctl group members channel:123
-telegramctl group admins channel:123
-telegramctl group promote channel:123 user:456 --rights pinMessages
-```
-
-`group promote` requires explicit `--rights`, and `group transfer-owner`
-requires Telegram 2FA. In a supergroup or channel, `group kick` is a
-**permanent viewing ban**, not just a removal. `mute` and `unmute` stay at the
-top level because they also work on other chats.
-
-### Export chat history
-
-```sh
-telegramctl export --chat channel:123 --all --output "$HOME/telegram-archive"
-telegramctl export --chat channel:123 --all --resume --output "$HOME/telegram-archive"
-```
-
-Export files are **plain-text JSONL**. Keep them somewhere private and out of Git. Without `--all`, `--days`, or `--since`, the default is the last seven days. Without `--chat`, the command covers all discovered chats. `--resume` adds newer messages; it doesn't fill old gaps or reflect edits and deletions. Media appear as metadata, not downloaded files. `sync` remains an alias, and existing archives can still be resumed.
-
-## Sessions and settings
-
-- **Check the active account:** `telegramctl auth whoami` (or `telegramctl whoami`). For separate logins, use `--state-dir <private-directory>` consistently, including during `auth`.
-- **Find local state:** The state directory listed above holds preferences, a reference to your saved login, and audit metadata. The credentials themselves stay in your keyring or gopass. Sign in separately on a new OS; copying the reference or syncing gopass doesn't move a profile.
-- **Sign out:** `telegramctl auth logout` revokes this CLI session and removes its saved credential. It doesn't sign out other devices. `telegramctl auth forget-local` deletes the saved credential only, asks for confirmation, and does **not** revoke the session.
-- **Switch from an older setup:** `telegramctl auth migrate --from <legacy-config>` imports a supported owner-only JSON/JSON5 config after confirmation and leaves the source untouched. If you have an old `session.enc.json` vault, sign in again instead. Neither step revokes old sessions; use Telegram’s **Settings → Devices** to end them.
-
-## OpenCode and development
-
-To add the [`telegramctl` skill](SKILL.md) to OpenCode on Linux or macOS, link
-the skill bundled with the installed npm package:
+The npm package includes an OpenCode [skill](SKILL.md). On Linux or macOS,
+link it once after installing the package:
 
 ```sh
 mkdir -p "$HOME/.config/opencode/skills/telegramctl"
 ln -s "$(npm root -g)/telegramctl/SKILL.md" "$HOME/.config/opencode/skills/telegramctl/SKILL.md"
 ```
 
-If the skill is already linked, skip this step. The skill does not make your Telegram session read-only; only grant access to an agent you trust.
+Only grant access to an agent you trust. The skill does not make your
+Telegram session read-only.
 
-For source builds only, install Xcode Command Line Tools on macOS or the C++
-workload and Windows SDK in Visual Studio Build Tools on Windows. Run Windows
-builds in a Visual Studio Developer shell for the target architecture. Linux
-does not need a compiler. Install the development tools with
-`npm ci --ignore-scripts`, then run:
+<details>
+<summary>Build from source or publish a release</summary>
 
-| Command | Purpose |
-| --- | --- |
-| `npm run format` | Format TypeScript and configuration with Oxfmt. |
-| `npm run lint` | Lint source and tests with Oxlint and its tsrs backend. |
-| `npm run typecheck` | Strictly check the CLI, source, and scripts with tsrs. |
-| `npm run check` | Run all three checks plus source and schema validation. |
-| `npm test` | Run the offline test suite. |
-| `npm run build` | Emit npm-installable JavaScript and OS helper into `dist/`. |
-| `npm run build:native` | Build only the platform helper (no-op on Linux). |
-| `npm run pack:release` | Validate all helpers and assemble the npm tarball. |
+Source builds need Xcode Command Line Tools on macOS or the C++ workload and
+Windows SDK in Visual Studio Build Tools on Windows. On Windows, build from
+the Visual Studio Developer shell for the target architecture. Linux does not
+need a compiler.
 
-Oxfmt targets 80 columns, and the source checks enforce the limit in TypeScript.
-Generated JSON and the npm lockfile are not reformatted. `npm test` and
-`npm run verify` also work without the JavaScript development tools; build the
-native helper first on Windows. No test uses a real Telegram account. See
-[the validation record](docs/VALIDATION.md#platform-validation) for the opt-in
-Keychain/Credential Manager test.
+```sh
+npm ci --ignore-scripts
+npm run check
+npm test
+npm run build
+```
 
-Regenerate the pinned schema with `npm run schema -- --fetch`, or use
-`npm run schema -- --source <directory>` with local copies of both files listed
-in the [schema provenance](src/protocol/provenance.json). Neither is needed at
-runtime.
+`npm run build:native` builds just the OS helper. See the
+[validation record](docs/VALIDATION.md) for the optional desktop keyring test
+and the [design notes](docs/EVALUATION.md) for implementation details.
 
-Maintainers: download `telegramctl-npm` from a passing
+For releases, download the `telegramctl-npm` artifact from a passing
 [Test and package run](https://github.com/pedro757/telegramctl/actions).
-Sign in with `npm login`, then publish the extracted `.tgz` with
-`npm publish ./telegramctl-<version>.tgz --access public`.
-Do not publish from a build that only contains one platform's helper.
+Sign in with `npm login`, then run
+`npm publish ./telegramctl-<version>.tgz --access public` and approve the npm
+2FA prompt. Publish the CI tarball: a local build only contains your platform’s
+helper.
 
-[Security and limits](SECURITY.md) · [Test results and Node.js compatibility](docs/VALIDATION.md) · [Design notes](docs/EVALUATION.md) · [Third-party notices](THIRD-PARTY-NOTICES.md)
+</details>
+
+[Security and limits](SECURITY.md) ·
+[Report an issue](https://github.com/pedro757/telegramctl/issues) ·
+[Third-party notices](THIRD-PARTY-NOTICES.md)
