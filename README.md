@@ -137,35 +137,48 @@ scope explicitly: the command submits immediately and doesn't undo deletions
 or delete existing local downloads and exports. If the result is uncertain,
 check the chat before retrying.
 
-### Organize chats and manage groups
+### Organize chat folders
 
 ```sh
-telegramctl mute channel:123 --duration 1h
-telegramctl unmute channel:123
-telegramctl folders
-telegramctl folder-create "Work" --include channel:123
-telegramctl folder-add folder:2 channel:456
-telegramctl members channel:123
-telegramctl admins channel:123
+telegramctl folder list
+telegramctl folder show folder:2
+telegramctl folder create "Work" --include channel:123
+telegramctl folder add folder:2 channel:456
+telegramctl folder remove folder:2 channel:456
 ```
 
-Use `folder-remove` to take a chat out of a folder. For group administration, `promote` requires explicit `--rights`, and `transfer-owner` requires Telegram 2FA. In a supergroup or channel, `kick` is a **permanent viewing ban**, not just a removal.
+Use the folder ID from `folder list`. For a folder named `list`, `show`, or
+another subcommand name, use `folder show "<name>"` explicitly.
+
+### Inspect and manage groups
+
+```sh
+telegramctl group list --admin
+telegramctl group members channel:123
+telegramctl group admins channel:123
+telegramctl group promote channel:123 user:456 --rights pinMessages
+```
+
+`group promote` requires explicit `--rights`, and `group transfer-owner`
+requires Telegram 2FA. In a supergroup or channel, `group kick` is a
+**permanent viewing ban**, not just a removal. `mute` and `unmute` stay at the
+top level because they also work on other chats.
 
 ### Export chat history
 
 ```sh
-telegramctl sync --chat channel:123 --all --output "$HOME/telegram-archive"
-telegramctl sync --chat channel:123 --all --resume --output "$HOME/telegram-archive"
+telegramctl export --chat channel:123 --all --output "$HOME/telegram-archive"
+telegramctl export --chat channel:123 --all --resume --output "$HOME/telegram-archive"
 ```
 
-Export files are **plain-text JSONL**. Keep them somewhere private and out of Git. Without `--all`, `--days`, or `--since`, the default is the last seven days. Without `--chat`, the command covers all discovered chats. `--resume` adds newer messages; it doesn't fill old gaps or reflect edits and deletions. Media appear as metadata, not downloaded files.
+Export files are **plain-text JSONL**. Keep them somewhere private and out of Git. Without `--all`, `--days`, or `--since`, the default is the last seven days. Without `--chat`, the command covers all discovered chats. `--resume` adds newer messages; it doesn't fill old gaps or reflect edits and deletions. Media appear as metadata, not downloaded files. `sync` remains an alias, and existing archives can still be resumed.
 
 ## Sessions and settings
 
-- **Check the active account:** `telegramctl whoami`. For separate logins, use `--state-dir <private-directory>` consistently, including during `auth`.
+- **Check the active account:** `telegramctl auth whoami` (or `telegramctl whoami`). For separate logins, use `--state-dir <private-directory>` consistently, including during `auth`.
 - **Find local state:** The state directory listed above holds preferences, a reference to your saved login, and audit metadata. The credentials themselves stay in your keyring or gopass. Sign in separately on a new OS; copying the reference or syncing gopass doesn't move a profile.
-- **Sign out:** `telegramctl auth logout` revokes this CLI session and removes its saved credential. It doesn't sign out other devices. `telegramctl forget-local` deletes the saved credential only, asks for confirmation, and does **not** revoke the session.
-- **Switch from an older setup:** `telegramctl migrate --from <legacy-config>` imports a supported owner-only JSON/JSON5 config after confirmation and leaves the source untouched. If you have an old `session.enc.json` vault, sign in again instead. Neither step revokes old sessions; use Telegram’s **Settings → Devices** to end them.
+- **Sign out:** `telegramctl auth logout` revokes this CLI session and removes its saved credential. It doesn't sign out other devices. `telegramctl auth forget-local` deletes the saved credential only, asks for confirmation, and does **not** revoke the session.
+- **Switch from an older setup:** `telegramctl auth migrate --from <legacy-config>` imports a supported owner-only JSON/JSON5 config after confirmation and leaves the source untouched. If you have an old `session.enc.json` vault, sign in again instead. Neither step revokes old sessions; use Telegram’s **Settings → Devices** to end them.
 
 ## OpenCode and development
 

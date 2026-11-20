@@ -64,9 +64,11 @@ const messageOptions = {
 const messageUsage =
   '[-f <path> | --file <path>] [-m <text> | --message <text> |' +
   ' --stdin | --message-fd 4]';
-const authActions = ['login', 'check', 'logout'] as const;
-const isAuthAction = (action: string): action is (typeof authActions)[number] =>
-  authActions.some((candidate) => candidate === action);
+const groups = {
+  auth: 'Manage login, account identity, and saved credentials',
+  folder: 'List and manage chat folders',
+  group: 'List groups, inspect members, and manage group membership',
+};
 const commands = {
   'auth login': {
     arity: 0,
@@ -87,21 +89,21 @@ const commands = {
     description:
       'Revoke this Telegram session, then remove its keyring/gopass credential',
   },
-  migrate: {
+  'auth whoami': {
+    arity: 0,
+    options: {},
+    description: 'Show the currently authorized account',
+  },
+  'auth migrate': {
     arity: 0,
     options: { from: str(), store: str() },
     description:
       'Explicitly import an owner-only legacy config into keyring or gopass',
   },
-  'forget-local': {
+  'auth forget-local': {
     arity: 0,
     options: {},
     description: 'Offline local deletion only; DOES NOT revoke Telegram access',
-  },
-  whoami: {
-    arity: 0,
-    options: {},
-    description: 'Show the currently authorized account',
   },
   chats: {
     arity: 0,
@@ -114,7 +116,7 @@ const commands = {
     options: { limit: str() },
     description: 'List unread/marked-unread dialogs',
   },
-  groups: {
+  'group list': {
     arity: 0,
     options: { limit: str(), admin: bool() },
     description: 'List groups, optionally only those you administer',
@@ -141,15 +143,15 @@ const commands = {
     options: {},
     description: 'chat <peer> — metadata/about for a user, group or channel',
   },
-  members: {
+  'group members': {
     arity: 1,
     options: { limit: str() },
-    description: 'members <group> [--limit 200]',
+    description: 'List group members (default limit: 200)',
   },
-  admins: {
+  'group admins': {
     arity: 1,
     options: { limit: str() },
-    description: 'admins <group> [--limit 200]',
+    description: 'List group administrators (default limit: 200)',
   },
   send: {
     arity: 1,
@@ -172,52 +174,50 @@ const commands = {
     description: 'mute <peer> [--duration 1h|forever]',
   },
   unmute: { arity: 1, options: {}, description: 'unmute <peer>' },
-  kick: {
+  'group kick': {
     arity: 2,
     options: {},
-    description: 'kick <group> <user> (permanent ban in channels/supergroups)',
+    description: 'Remove a member (permanent ban in channels/supergroups)',
   },
-  promote: {
+  'group promote': {
     arity: 2,
     options: { rights: str(), rank: str() },
     description:
-      'promote <group> <user> --rights pinMessages,deleteMessages' +
+      'Promote with explicit rights, e.g. --rights pinMessages,deleteMessages' +
       ' (basic groups: --rights full)',
   },
-  'transfer-owner': {
+  'group transfer-owner': {
     arity: 2,
     options: {},
-    description: 'transfer-owner <group> <user> (irreversible; Telegram 2FA)',
+    description: 'Transfer ownership (irreversible; Telegram 2FA required)',
   },
-  folders: {
+  'folder list': {
     arity: 0,
     options: {},
     description:
       'List chat folders with stable folder IDs and explicit membership/rules',
   },
-  folder: {
+  'folder show': {
     arity: 1,
     options: {},
-    description: 'folder <folder:id|exact-name>',
+    description: 'Show one folder by ID or exact name',
   },
-  'folder-add': {
-    arity: 2,
-    options: {},
-    description: 'folder-add <folder> <peer>',
-  },
-  'folder-remove': {
-    arity: 2,
-    options: {},
-    description: 'folder-remove <folder> <peer>',
-  },
-  'folder-create': {
+  'folder create': {
     arity: 1,
     options: { include: str(), categories: str() },
-    description:
-      'folder-create <title> --include <peer,...> | --categories' +
-      ' contacts,groups,...',
+    description: 'Create a folder with explicit peers, categories, or both',
   },
-  sync: {
+  'folder add': {
+    arity: 2,
+    options: {},
+    description: 'Add a chat to a folder',
+  },
+  'folder remove': {
+    arity: 2,
+    options: {},
+    description: 'Remove a chat from a folder',
+  },
+  export: {
     arity: 0,
     options: {
       chat: str(),
@@ -247,43 +247,67 @@ const peerArguments = {
   download: [0],
   contact: [0],
   chat: [0],
-  members: [0],
-  admins: [0],
+  'group members': [0],
+  'group admins': [0],
   send: [0],
   reply: [0],
   delete: [0],
   mute: [0],
   unmute: [0],
-  kick: [0, 1],
-  promote: [0, 1],
-  'transfer-owner': [0, 1],
-  'folder-add': [1],
-  'folder-remove': [1],
+  'group kick': [0, 1],
+  'group promote': [0, 1],
+  'group transfer-owner': [0, 1],
+  'folder add': [1],
+  'folder remove': [1],
 };
 type CommandName = keyof typeof commands;
-type HelpTarget = CommandName | 'auth';
+type CommandGroup = keyof typeof groups;
+type HelpTarget = CommandName | CommandGroup;
+const isCommandName = (name: string): name is CommandName =>
+  Object.hasOwn(commands, name);
+const isCommandGroup = (name: string): name is CommandGroup =>
+  Object.hasOwn(groups, name);
+const commandNames = Object.keys(commands).filter(isCommandName);
+const aliases = {
+  check: 'auth check',
+  logout: 'auth logout',
+  whoami: 'auth whoami',
+  migrate: 'auth migrate',
+  'forget-local': 'auth forget-local',
+  folders: 'folder list',
+  'folder-create': 'folder create',
+  'folder-add': 'folder add',
+  'folder-remove': 'folder remove',
+  groups: 'group list',
+  members: 'group members',
+  admins: 'group admins',
+  kick: 'group kick',
+  promote: 'group promote',
+  'transfer-owner': 'group transfer-owner',
+  sync: 'export',
+} satisfies Record<string, CommandName>;
 const usage: Partial<Record<CommandName, string>> = {
   'auth login': '[--dc <id>] [--store keyring|gopass]',
-  migrate: '--from <file> [--store keyring|gopass]',
+  'auth migrate': '--from <file> [--store keyring|gopass]',
   read: '<peer>',
   download: '<peer> <message-id> [-o <directory>]',
   search: '<query> (--chat <peer> | --all)',
   contact: '<user>',
   chat: '<peer>',
-  members: '<group>',
-  admins: '<group>',
+  'group members': '<group>',
+  'group admins': '<group>',
   send: `<peer> ${messageUsage}`,
   reply: `<peer> <message-id> ${messageUsage}`,
   delete: '<peer> <message-id> (--for-me | --for-everyone)',
   mute: '<peer>',
   unmute: '<peer>',
-  kick: '<group> <user>',
-  promote: '<group> <user> --rights <rights>',
-  'transfer-owner': '<group> <user>',
-  folder: '<folder:id|exact-name>',
-  'folder-add': '<folder> <peer>',
-  'folder-remove': '<folder> <peer>',
-  'folder-create': '<title> (--include <peers> | --categories <categories>)',
+  'group kick': '<group> <user>',
+  'group promote': '<group> <user> --rights <rights>',
+  'group transfer-owner': '<group> <user>',
+  'folder show': '<folder:id|exact-name>',
+  'folder add': '<folder> <peer>',
+  'folder remove': '<folder> <peer>',
+  'folder create': '<title> [--include <peers>] [--categories <categories>]',
 };
 type TextOption =
   | 'chat'
@@ -341,20 +365,23 @@ const downloadHelp =
   ' system Downloads folder. Use -o/--output to choose another directory.';
 
 export function help(command?: HelpTarget) {
-  if (command === 'auth')
+  if (command && isCommandGroup(command)) {
+    const subcommands = commandNames
+      .filter((name) => name.startsWith(`${command} `))
+      .map((name) => ({ name, action: name.slice(command.length + 1) }));
     return [
-      `Usage: telegramctl auth <${authActions.join('|')}> [options]`,
+      `Usage: telegramctl ${command} <action> [arguments] [options]`,
       '',
-      ...authActions.map(
-        (action) =>
-          `  ${action.padEnd(8)}${commands[`auth ${action}`].description}`,
+      ...subcommands.map(
+        ({ name, action }) =>
+          `  ${action.padEnd(16)} ${commands[name].description}`,
       ),
       '',
-      'Run telegramctl auth <action> --help for command options.',
-      'Related commands: whoami, migrate, forget-local.',
+      `Run telegramctl ${command} <action> --help for command options.`,
       globalHelp,
       '',
     ].join('\n');
+  }
   if (command) {
     const args = usage[command] ?? '';
     const options = Object.entries(commands[command].options).map(
@@ -375,8 +402,11 @@ export function help(command?: HelpTarget) {
         ? ['Downloaded files are private and never overwrite existing files.']
         : []),
       ...(command === 'auth login' ? [secretHelp] : []),
-      ...(command === 'promote'
+      ...(command === 'group promote'
         ? [`Admin rights: ${ADMIN_RIGHTS.join(', ')}`]
+        : []),
+      ...(command === 'folder create'
+        ? [`Folder categories: ${FOLDER_CATEGORIES.join(', ')}`]
         : []),
       ...(options.length ? ['', 'Command options:', ...options] : []),
       '',
@@ -384,8 +414,15 @@ export function help(command?: HelpTarget) {
       '',
     ].join('\n');
   }
-  const commandLines = Object.entries(commands).map(
-    ([name, definition]) => `  ${name.padEnd(16)} ${definition.description}`,
+  const entries = [
+    ...Object.entries(groups),
+    ['whoami', 'Shortcut for auth whoami'],
+    ...commandNames
+      .filter((name) => !name.includes(' '))
+      .map((name) => [name, commands[name].description]),
+  ];
+  const commandLines = entries.map(
+    ([name, description]) => `  ${name.padEnd(16)} ${description}`,
   );
   return [
     'telegramctl 0.1.0 — Node.js 26.0.0+, zero npm dependencies,' +
@@ -398,16 +435,17 @@ export function help(command?: HelpTarget) {
     '',
     'Run telegramctl <command> --help for command options.',
     globalHelp + ', --version (top level)',
-    'Credentials: native OS keyring by default; auth login or migrate with' +
-      ' --store gopass selects gopass. No app vault or app passphrase.',
+    'Credentials: native OS keyring by default. Use --store gopass with' +
+      ' auth login or auth migrate to select gopass. No app vault or' +
+      ' app passphrase.',
     'Peer identifiers: user:123, chat:123, channel:123, @username, self, or' +
       ' an EXACT unique dialog title.',
     `File sending: one local document up to ${MAX_UPLOAD_MIB} MiB via` +
       ' -f/--file, with an optional caption. Without a file or text option,' +
       ' use the hidden message prompt.',
     downloadHelp + ' Reading history does not download files.',
-    'Remote account changes submit without confirmation. Migration and' +
-      ' forget-local still require terminal confirmation. Telegram' +
+    'Remote account changes submit without confirmation. auth migrate and' +
+      ' auth forget-local still require terminal confirmation. Telegram' +
       ' permissions and 2FA still apply.',
     secretHelp +
       ' -m/--message text can appear in shell history/process listings;' +
@@ -449,24 +487,29 @@ export function parseCommand(argv: string[]): ParsedCommand {
   const [name, ...tail] = argv;
   let command: CommandName,
     rest = tail;
-  if (name === 'auth') {
+  if (isCommandGroup(name)) {
     const [action, ...options] = tail;
-    if (!action || (tail.length === 1 && ['-h', '--help'].includes(action)))
-      return { command: 'help', target: 'auth' };
-    if (!isAuthAction(action))
-      throw securityError(
-        'Use telegramctl auth login, auth check, or auth logout;' +
-          ' run telegramctl auth --help for usage.',
-      );
-    command = `auth ${action}`;
-    rest = options;
-  } else if (name === 'check' || name === 'logout') {
-    // Compatibility for scripts; advertise only the namespaced forms.
-    command = `auth ${name}`;
+    if (
+      action === undefined ||
+      (tail.length === 1 && ['-h', '--help'].includes(action))
+    )
+      return { command: 'help', target: name };
+    const subcommand = `${name} ${action}`;
+    if (isCommandName(subcommand)) {
+      command = subcommand;
+      rest = options;
+    } else if (name === 'folder') {
+      // Legacy `folder <id|title>`; subcommand names take precedence.
+      command = 'folder show';
+    } else {
+      throw securityError(`Unknown action; run telegramctl ${name} --help`);
+    }
+  } else if (Object.hasOwn(aliases, name)) {
+    command = aliases[name as keyof typeof aliases];
   } else {
-    if (name.includes(' ') || !Object.hasOwn(commands, name))
+    if (name.includes(' ') || !isCommandName(name))
       throw securityError('Unknown command; run telegramctl --help');
-    command = name as CommandName;
+    command = name;
   }
   const definition = commands[command];
   // Protect bare negative numbers from being mistaken for short options, then
@@ -529,9 +572,9 @@ export function parseCommand(argv: string[]): ParsedCommand {
       );
     integer(positionals[1], undefined, 2_147_483_647);
   }
-  if (command === 'promote' && !values.rights)
+  if (command === 'group promote' && !values.rights)
     throw securityError('Promotion requires explicit --rights');
-  if (command === 'folder-create') {
+  if (command === 'folder create') {
     const peers = values.include?.split(',') ?? [],
       categories = values.categories?.split(',') ?? [];
     if (
@@ -545,7 +588,7 @@ export function parseCommand(argv: string[]): ParsedCommand {
           ` --categories ${FOLDER_CATEGORIES.join(',')}`,
       );
   }
-  if (command === 'migrate' && !values.from)
+  if (command === 'auth migrate' && !values.from)
     throw securityError(
       'Migration requires --from <private legacy config file>',
     );
@@ -571,7 +614,7 @@ export function parseCommand(argv: string[]): ParsedCommand {
     );
   if (values.message !== undefined) validateMessageText(values.message);
   if (
-    command === 'sync' &&
+    command === 'export' &&
     Number(Boolean(values.all)) +
       Number(values.days !== undefined) +
       Number(values.since !== undefined) >
@@ -615,7 +658,7 @@ export function parseCommand(argv: string[]): ParsedCommand {
   }
   if (values.days !== undefined)
     dateBounds.since = epochSeconds(timeFilter(`${values.days}d`));
-  if (command === 'sync' && !values.all && dateBounds.since === undefined)
+  if (command === 'export' && !values.all && dateBounds.since === undefined)
     dateBounds.since = epochSeconds(timeFilter('7d'));
   if (
     (dateBounds.since ?? 0) < 0 ||
@@ -952,7 +995,7 @@ export async function main(
     );
     return;
   }
-  if (command === 'migrate') {
+  if (command === 'auth migrate') {
     const session = await loadLegacy(values.from!);
     try {
       progress(
@@ -983,7 +1026,7 @@ export async function main(
     }
     return;
   }
-  if (command === 'forget-local') {
+  if (command === 'auth forget-local') {
     const expectedFingerprint = await store.fingerprint();
     warning(
       'WARNING: This only deletes the selected keyring/gopass' +
@@ -1045,7 +1088,7 @@ export async function main(
         };
         break;
       }
-      case 'whoami':
+      case 'auth whoami':
         result = await telegram.whoami();
         break;
       case 'auth logout': {
@@ -1081,7 +1124,7 @@ export async function main(
           unread: true,
         });
         break;
-      case 'groups':
+      case 'group list':
         result = await telegram.dialogs({
           limit: integer(values.limit, 100),
           type: 'groups',
@@ -1118,10 +1161,10 @@ export async function main(
       case 'chat':
         result = await telegram.chat(args[0]);
         break;
-      case 'members':
-      case 'admins':
+      case 'group members':
+      case 'group admins':
         result = await telegram.members(args[0], {
-          admins: command === 'admins',
+          admins: command === 'group admins',
           limit: integer(values.limit, 200),
         });
         break;
@@ -1151,39 +1194,39 @@ export async function main(
       case 'unmute':
         result = await telegram.mute(args[0], 0);
         break;
-      case 'kick':
+      case 'group kick':
         result = await telegram.kick(args[0], args[1]);
         break;
-      case 'promote':
+      case 'group promote':
         result = await telegram.promote(args[0], args[1], {
           rights: values.rights === 'full' ? 'full' : values.rights!.split(','),
           rank: values.rank,
         });
         break;
-      case 'transfer-owner':
+      case 'group transfer-owner':
         result = await telegram.transferOwner(args[0], args[1]);
         break;
-      case 'folders':
+      case 'folder list':
         result = await telegram.folders();
         break;
-      case 'folder':
+      case 'folder show':
         result = await telegram.folder(args[0]);
         break;
-      case 'folder-add':
-      case 'folder-remove':
+      case 'folder add':
+      case 'folder remove':
         result = await telegram.changeFolder(
           args[0],
           args[1],
-          command === 'folder-add',
+          command === 'folder add',
         );
         break;
-      case 'folder-create':
+      case 'folder create':
         result = await telegram.createFolder(args[0], {
           peers: values.include?.split(','),
           categories: values.categories?.split(','),
         });
         break;
-      case 'sync':
+      case 'export':
         result = await syncHistory(
           telegram,
           {

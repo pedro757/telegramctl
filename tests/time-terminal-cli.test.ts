@@ -279,14 +279,12 @@ test(
       /EXPERIMENTAL|independently audited|interoperability tested/,
     );
     assert.match(text, /Remote account changes submit without confirmation/);
-    assert.match(
-      text,
-      /Migration and forget-local still require terminal confirmation/,
-    );
+    assert.match(text, /auth forget-local still require terminal confirmation/);
     assert.match(text, /-m <text> \| --message <text>/);
     assert.match(text, /shell history\/process listings/);
-    assert.match(text, /auth login/);
-    assert.match(text, /auth logout/);
+    for (const group of ['auth', 'folder', 'group', 'export', 'whoami'])
+      assert.match(text, new RegExp(`^  ${group}\\s+`, 'm'));
+    assert.doesNotMatch(text, /^  (auth check|members|folder-create|sync)\s/m);
     text = '';
     await main(['--version'], { stdout });
     assert.equal(text, '0.1.0\n');
@@ -301,7 +299,7 @@ test('The npm package and command are both telegramctl', async () => {
   assert.equal(pkg.engines.node, '>=26.0.0');
   assert.deepEqual(pkg.bin, { telegramctl: 'dist/bin/telegramctl.js' });
 });
-test('Auth group and command-specific help stay offline', async () => {
+test('Command groups and command-specific help stay offline', async () => {
   let text = '';
   const options = {
     stdout: {
@@ -314,10 +312,13 @@ test('Auth group and command-specific help stay offline', async () => {
   for (const args of [['auth'], ['auth', '--help'], ['auth', '-h']]) {
     text = '';
     await main(args, options);
-    assert.match(text, /Usage: telegramctl auth <login\|check\|logout>/);
+    assert.match(text, /Usage: telegramctl auth <action>/);
     assert.match(text, /login\s+Login and save/);
     assert.match(text, /check\s+Check the saved session/);
     assert.match(text, /logout\s+Revoke/);
+    assert.match(text, /whoami\s+Show/);
+    assert.match(text, /migrate\s+Explicitly import/);
+    assert.match(text, /forget-local\s+Offline local deletion/);
     assert.doesNotMatch(text, /Admin rights/);
   }
   text = '';
@@ -329,11 +330,72 @@ test('Auth group and command-specific help stay offline', async () => {
   await main(['auth', 'check', '--help'], options);
   assert.match(text, /Usage: telegramctl auth check/);
   assert.match(text, /does not mark messages read/);
+  for (const [group, actions] of [
+    ['folder', ['list', 'show', 'create', 'add', 'remove']],
+    [
+      'group',
+      ['list', 'members', 'admins', 'kick', 'promote', 'transfer-owner'],
+    ],
+  ] as const) {
+    text = '';
+    await main([group, '--help'], options);
+    assert.match(text, new RegExp(`Usage: telegramctl ${group} <action>`));
+    for (const action of actions)
+      assert.match(text, new RegExp(`  ${action} `));
+  }
+  text = '';
+  await main(['group', 'promote', '--help'], options);
+  assert.match(text, /Usage: telegramctl group promote <group> <user>/);
+  assert.match(text, /Admin rights:/);
+  text = '';
+  await main(['folder', 'create', '--help'], options);
+  assert.match(text, /Folder categories:/);
+  text = '';
+  await main(['export', '--help'], options);
+  assert.match(text, /Usage: telegramctl export/);
+  assert.match(text, /-o, --output/);
   text = '';
   await main(['download', '--help'], options);
   assert.match(text, /system Downloads folder/);
   assert.match(text, /-o, --output/);
   assert.doesNotMatch(text, /Admin rights/);
+});
+test('Moved commands still accept the old spelling and arguments', () => {
+  const aliases = [
+    ['check', 'auth check'],
+    ['logout', 'auth logout'],
+    ['whoami', 'auth whoami'],
+    ['migrate', 'auth migrate', '--from', 'legacy.json', '--store', 'gopass'],
+    ['forget-local', 'auth forget-local'],
+    ['folders', 'folder list'],
+    ['folder', 'folder show', 'folder:2'],
+    ['folder-create', 'folder create', 'Work', '--categories', 'groups'],
+    ['folder-add', 'folder add', 'folder:2', '-1001234567890'],
+    ['folder-remove', 'folder remove', 'folder:2', 'self'],
+    ['groups', 'group list', '--admin'],
+    ['members', 'group members', '-123', '--limit', '25'],
+    ['admins', 'group admins', '-123'],
+    ['kick', 'group kick', '-123', 'user:4'],
+    ['promote', 'group promote', '-123', 'user:4', '--rights', 'full'],
+    ['transfer-owner', 'group transfer-owner', '-123', 'user:4'],
+    ['sync', 'export', '--resume', '--chat', '-123', '-o', './archive'],
+  ];
+  for (const [alias, command, ...args] of aliases) {
+    const parsed = parseCommand([...command.split(' '), ...args, '--json']);
+    assert.equal(parsed.command, command);
+    assert.deepEqual(parseCommand([alias, ...args, '--json']), parsed);
+  }
+  assert.deepEqual(
+    parseCommand(['folder', '--', 'list']),
+    parseCommand(['folder', 'show', 'list']),
+  );
+  assert.deepEqual(parseCommand(['folder', 'list']).positionals, []);
+  assert.throws(() => parseCommand(['group', 'unknown']), /group --help/);
+  assert.throws(() => parseCommand(['group', 'promote', 'chat:1', 'user:4']));
+  assert.throws(() => parseCommand(['group', 'kick', 'chat:1']), /Incorrect/);
+  assert.throws(() => parseCommand(['folder', 'create', 'Work']), /--include/);
+  assert.throws(() => parseCommand(['auth', 'migrate']), /--from/);
+  assert.throws(() => parseCommand(['export', '--all', '--days', '7']));
 });
 test('Auth check verifies the saved account without mutations', async (t) => {
   const directory = await scratch(t);
@@ -505,7 +567,8 @@ import {
 } from './tests/support.ts';
 const directory = process.argv[1],
   args = JSON.parse(process.argv[2]),
-  command = args[0] === 'auth' ? args[1] : args[0],
+  command = args[0] === 'folder' ? 'folder-' + args[1]
+    : ['auth', 'group'].includes(args[0]) ? args[1] : args[0],
   fake = fakeCredentials(directory);
 await fake.store.create(session());
 const rpc = fakeRpc((name, params, options) => {
@@ -577,15 +640,20 @@ assert.equal(fake.records.size, command === 'logout' ? 0 : 1);
       ['mute', 'user:2'],
       ['unmute', 'user:2'],
       ['delete', 'channel:3', '42', '--for-everyone'],
-      ['kick', 'channel:3', 'user:2'],
-      ['promote', 'channel:3', 'user:2', '--rights', 'pinMessages'],
-      ['folder-create', 'Work', '--categories', 'groups'],
-      ['folder-add', 'folder:2', 'user:2'],
-      ['folder-remove', 'folder:2', 'user:2'],
+      ['group', 'kick', 'channel:3', 'user:2'],
+      ['group', 'promote', 'channel:3', 'user:2', '--rights', 'pinMessages'],
+      ['folder', 'create', 'Work', '--categories', 'groups'],
+      ['folder', 'add', 'folder:2', 'user:2'],
+      ['folder', 'remove', 'folder:2', 'user:2'],
       ['auth', 'logout'],
     ];
     for (const args of cases) {
-      const verb = args[0] === 'auth' ? args[1] : args[0];
+      const verb =
+        args[0] === 'folder'
+          ? `folder-${args[1]}`
+          : args[0] === 'auth' || args[0] === 'group'
+            ? args[1]
+            : args[0];
       const state = join(directory, verb);
       const result = spawnSync(
         process.execPath,
@@ -639,7 +707,7 @@ import { fakeCredentials, session } from './tests/support.ts';
 const directory = process.argv[1],
   command = process.argv[2],
   fake = fakeCredentials(directory);
-const args = [command, '--state-dir', directory];
+const args = ['auth', command, '--state-dir', directory];
 if (command === 'forget-local') await fake.store.create(session());
 else {
   await fake.store.assertNew();
@@ -945,7 +1013,7 @@ test(
     assert.throws(() => parseCommand(['auth', 'unknown']), /auth --help/);
     assert.throws(
       () => parseCommand(['auth', '--store', 'gopass']),
-      /auth login/,
+      /auth --help/,
     );
     assert.throws(() =>
       parseCommand(['auth', 'login', '--store', 'plaintext']),

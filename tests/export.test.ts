@@ -11,6 +11,7 @@ import {
   unlink,
 } from 'node:fs/promises';
 import { join } from 'node:path';
+import { main } from '../src/cli.ts';
 import { syncHistory, MAX_SYNC_CHATS, MAX_META_BYTES } from '../src/export.ts';
 import {
   createTelegram,
@@ -24,7 +25,9 @@ import {
   scratch,
   channel,
   user,
+  fakeCredentials,
   fakeRpc,
+  session,
   windows,
   directoryLink,
   publicWindowsRead,
@@ -66,6 +69,56 @@ const records = (bytes) =>
     .trimEnd()
     .split('\n')
     .map((line) => JSON.parse(line));
+
+test('Export resumes an archive created through the sync alias', async (t) => {
+  const root = await scratch(t),
+    state = join(root, 'state'),
+    output = join(root, 'archive'),
+    fake = fakeCredentials(state);
+  await fake.store.create(session());
+  let nextId = 1;
+  const rpc = fakeRpc((name, args) => {
+    assert.equal(name, 'messages.GetHistory');
+    assert.equal(args.minId, nextId - 1);
+    return {
+      messages: [
+        {
+          _: 'Message',
+          id: nextId,
+          date: 1_800_000_000,
+          peerId: { _: 'PeerUser', userId: 1n },
+          message: `fixture ${nextId}`,
+        },
+      ],
+    };
+  });
+  const options = {
+    makeStore: () => fake.store,
+    makeClient: () => ({ ...rpc, async open() {}, close() {} }),
+    stdout: { write() {} },
+  };
+  const args = [
+    '--state-dir',
+    state,
+    '--chat',
+    'self',
+    '--all',
+    '-o',
+    output,
+    '--quiet',
+  ];
+  await main(['sync', ...args], options);
+  nextId++;
+  await main(['export', ...args, '--resume'], options);
+  const [header, ...messages] = records(
+    await readFile(join(output, 'chat-user-1.jsonl'), 'utf8'),
+  );
+  assert.equal(header.format, 'telegram-cli-export');
+  assert.deepEqual(
+    messages.map(({ id }) => id),
+    [1, 2],
+  );
+});
 
 test(
   'Exports use private stable-ID JSONL filenames; remote titles' +
