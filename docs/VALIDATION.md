@@ -15,7 +15,7 @@ npm run check
 node scripts/verify.ts
 node --test --experimental-test-coverage --test-coverage-include='src/**' \
   --test-reporter=spec 'tests/**/*.test.ts'
-node bin/telegram.ts --help
+node bin/telegramctl.ts --help
 ```
 
 `check` runs Oxlint, Oxfmt, and tsrs as well as the source and schema checks.

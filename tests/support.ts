@@ -31,7 +31,7 @@ export async function scratch(t: TestContext) {
     parent = tmpdir();
   }
   // macOS commonly reports a temp path through the /var symlink.
-  const prefix = join(await realpath(parent), 'telegram-cli-test-');
+  const prefix = join(await realpath(parent), 'telegramctl-test-');
   const directory = windows
     ? await privateDirectory(prefix + randomBytes(12).toString('hex'))
     : await mkdtemp(prefix);

@@ -142,7 +142,7 @@ test(
     assert.equal(readUint(reader), definitionFor('InitConnection').id);
     assert.equal(readUint(reader), 0);
     assert.equal(readInt(reader), 12345);
-    assert.equal(readValue(reader, 'string'), 'telegram-cli'); // deviceModel
+    assert.equal(readValue(reader, 'string'), 'telegramctl'); // deviceModel
     assert.equal(
       readValue(reader, 'string'),
       `Node.js ${process.version} ${process.platform}`,

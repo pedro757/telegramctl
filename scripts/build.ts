@@ -2,6 +2,7 @@ import { mkdir, cp } from 'node:fs/promises';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { join } from 'node:path';
+import { nativeFilename } from '../src/native-filename.ts';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const output = join(root, 'dist', 'native');
@@ -18,6 +19,10 @@ if (!process.argv.includes('--native-only'))
 const windows = process.platform === 'win32';
 if (windows || process.platform === 'darwin') {
   await mkdir(output, { recursive: true });
+  const filename = nativeFilename(
+    process.platform,
+    windows ? process.env.VSCMD_ARG_TGT_ARCH : undefined,
+  );
   const args = windows
     ? [
         '/nologo',
@@ -25,7 +30,7 @@ if (windows || process.platform === 'darwin') {
         '/O2',
         '/W4',
         '/MT',
-        '/Fe:telegram-os.exe',
+        `/Fe:${filename}`,
         join(root, 'native', 'windows.c'),
         '/link',
         'advapi32.lib',
@@ -37,13 +42,18 @@ if (windows || process.platform === 'darwin') {
         '-O2',
         '-Wall',
         '-Wextra',
+        '-mmacosx-version-min=13.0',
+        '-arch',
+        'x86_64',
+        '-arch',
+        'arm64',
         join(root, 'native', 'keychain.c'),
         '-framework',
         'Security',
         '-framework',
         'CoreFoundation',
         '-o',
-        'telegram-os',
+        filename,
       ];
   const result = spawnSync(windows ? 'cl.exe' : '/usr/bin/clang', args, {
     cwd: output,

@@ -61,7 +61,8 @@ export function defaultStateDirectory(
 export function credentialExecutable(
   backend: CredentialBackend,
   platform = process.platform,
-  gopassPath = process.env.TELEGRAM_GOPASS_PATH,
+  gopassPath = process.env.TELEGRAMCTL_GOPASS_PATH ??
+    process.env.TELEGRAM_GOPASS_PATH,
 ) {
   if (!['linux', 'darwin', 'win32'].includes(platform))
     throw securityError('Credential storage supports Linux, macOS and Windows');
@@ -79,15 +80,15 @@ export function credentialExecutable(
         : !posix.isAbsolute(gopassPath))
     )
       throw securityError(
-        'Set TELEGRAM_GOPASS_PATH to a trusted absolute gopass executable' +
+        'Set TELEGRAMCTL_GOPASS_PATH to a trusted absolute gopass executable' +
           ' (gopass.exe on Windows)',
       );
     return gopassPath;
   }
   if (platform === 'win32')
     throw securityError(
-      'Set TELEGRAM_GOPASS_PATH to the absolute path of a trusted gopass.exe' +
-        ' (gopass >=1.17). No file fallback is available.',
+      'Set TELEGRAMCTL_GOPASS_PATH to the absolute path of a trusted' +
+        ' gopass.exe (gopass >=1.17). No file fallback is available.',
     );
   if (platform === 'linux') return '/usr/bin/gopass';
   const paths = [
@@ -205,8 +206,8 @@ export function credentialStore(
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code === 'ENOENT')
         throw securityError(
-          'No keyring/gopass session is configured. Run telegram auth login;' +
-            ' old session.enc.json files are not loaded or changed.',
+          'No keyring/gopass session is configured. Run telegramctl auth' +
+            ' login; old session.enc.json files are not loaded or changed.',
         );
       throw securityError('Invalid or insecure credential reference');
     }
@@ -232,7 +233,7 @@ export function credentialStore(
       const helper =
         store === 'keyring'
           ? 'secret-tool (libsecret) and an OS Secret Service keyring'
-          : 'gopass >=1.17 (set TELEGRAM_GOPASS_PATH if needed)';
+          : 'gopass >=1.17 (set TELEGRAMCTL_GOPASS_PATH if needed)';
       await assertExecutable(
         executable,
         `Install/configure ${helper} first. No file fallback is available.`,

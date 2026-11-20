@@ -1,4 +1,4 @@
-name: Offline tests
+name: Test and package
 
 on: [push, pull_request]
 
@@ -10,7 +10,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        os: [ubuntu-latest, macos-latest, windows-latest, windows-11-arm]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -23,10 +23,51 @@ jobs:
       - if: runner.os == 'Windows'
         shell: cmd
         run: |
-          for /f "usebackq delims=" %%i in (`"%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath`) do set "VSROOT=%%i"
+          set "TARGET=x64"
+          set "COMPONENT=Microsoft.VisualStudio.Component.VC.Tools.x86.x64"
+          if /i "%RUNNER_ARCH%"=="ARM64" set "TARGET=arm64"
+          if /i "%RUNNER_ARCH%"=="ARM64" set "COMPONENT=Microsoft.VisualStudio.Component.VC.Tools.ARM64"
+          for /f "usebackq delims=" %%i in (`"%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * -requires %COMPONENT% -property installationPath`) do set "VSROOT=%%i"
           if not defined VSROOT exit /b 1
-          call "%VSROOT%\Common7\Tools\VsDevCmd.bat" -arch=x64 -host_arch=x64
+          call "%VSROOT%\Common7\Tools\VsDevCmd.bat" -arch=%TARGET% -host_arch=%TARGET%
           if errorlevel 1 exit /b 1
           npm run build
       - run: npm run check
       - run: npm test
+      - uses: actions/upload-artifact@v4
+        if: runner.os != 'Linux'
+        with:
+          name: native-${{ matrix.os }}
+          path: |
+            dist/native/telegram-os
+            dist/native/telegram-os-*.exe
+          if-no-files-found: error
+
+  package:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 26
+      - run: npm ci --ignore-scripts
+      - run: npm run build
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: native-*
+          path: dist/native
+          merge-multiple: true
+      - run: chmod +x dist/native/telegram-os
+      - run: npm run pack:release
+      - name: Smoke-test the npm install
+        shell: bash
+        run: |
+          npm install -g --ignore-scripts --prefix "$RUNNER_TEMP/install" dist/release/telegramctl-*.tgz
+          "$RUNNER_TEMP/install/bin/telegramctl" --version
+          "$RUNNER_TEMP/install/bin/telegramctl" auth --help
+      - uses: actions/upload-artifact@v4
+        with:
+          name: telegramctl-npm
+          path: dist/release/telegramctl-*.tgz
+          if-no-files-found: error

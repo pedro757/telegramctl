@@ -525,7 +525,7 @@ export function createRpcClient(
             query: {
               _: 'InitConnection',
               apiId,
-              deviceModel: 'telegram-cli',
+              deviceModel: 'telegramctl',
               systemVersion: `Node.js ${process.version} ${process.platform}`,
               appVersion: '0.1.0',
               systemLangCode: 'en',

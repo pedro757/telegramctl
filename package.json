@@ -1,17 +1,25 @@
 {
-  "name": "telegram",
+  "name": "telegramctl",
   "version": "0.1.0",
-  "private": true,
   "description": "Dependency-free Telegram CLI and agent skill",
+  "homepage": "https://github.com/pedro757/telegram-cli#readme",
+  "bugs": {
+    "url": "https://github.com/pedro757/telegram-cli/issues"
+  },
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/pedro757/telegram-cli.git"
+  },
   "bin": {
-    "telegram": "dist/bin/telegram.js"
+    "telegramctl": "dist/bin/telegramctl.js"
   },
   "files": [
-    "dist/bin",
+    "dist/bin/telegramctl.js",
     "dist/src",
     "dist/native/telegram-os",
-    "dist/native/telegram-os.exe",
+    "dist/native/telegram-os-x64.exe",
+    "dist/native/telegram-os-arm64.exe",
     "SKILL.md",
     "SECURITY.md",
     "THIRD-PARTY-NOTICES.md"
@@ -29,7 +37,9 @@
     "typecheck": "tsrs --noEmit --fast",
     "build": "tsrs --noEmit false && node scripts/build.ts",
     "build:native": "node scripts/build.ts --native-only",
-    "start": "node bin/telegram.ts",
+    "pack:release": "node scripts/pack-release.ts",
+    "prepublishOnly": "node scripts/pack-release.ts --check",
+    "start": "node bin/telegramctl.ts",
     "schema": "node scripts/schema.ts"
   },
   "devDependencies": {

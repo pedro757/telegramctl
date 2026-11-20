@@ -171,7 +171,7 @@ test('CLI saves the largest photo in bounded parts', async (t) => {
     },
   );
   const { source, result } = JSON.parse(stdout);
-  assert.equal(source, 'telegram-cli');
+  assert.equal(source, 'telegramctl');
   const path = join(output, 'channel-9-77.jpg');
   assert.equal(result.path, path);
   assert.equal(result.bytes, photoBytes.length);

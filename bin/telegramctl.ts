@@ -7,7 +7,7 @@ if (
   typeof Temporal !== 'object'
 ) {
   process.stderr.write(
-    'Telegram requires Node.js 26.0.0 or newer with native Temporal enabled.\n',
+    'telegramctl requires Node.js 26.0.0+ with native Temporal enabled.\n',
   );
   process.exitCode = 1;
 } else {

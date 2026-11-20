@@ -340,12 +340,12 @@ const downloadHelp =
 export function help(command?: HelpTarget) {
   if (command === 'auth')
     return [
-      'Usage: telegram auth <login|logout> [options]',
+      'Usage: telegramctl auth <login|logout> [options]',
       '',
       `  login   ${commands['auth login'].description}`,
       `  logout  ${commands['auth logout'].description}`,
       '',
-      'Run telegram auth login --help or telegram auth logout --help.',
+      'Run telegramctl auth login --help or telegramctl auth logout --help.',
       'Related commands: check, whoami, migrate, forget-local.',
       globalHelp,
       '',
@@ -363,7 +363,7 @@ export function help(command?: HelpTarget) {
       },
     );
     return [
-      `Usage: telegram ${command}${args ? ` ${args}` : ''} [options]`,
+      `Usage: telegramctl ${command}${args ? ` ${args}` : ''} [options]`,
       '',
       command === 'download' ? downloadHelp : commands[command].description,
       ...(command === 'download'
@@ -383,14 +383,15 @@ export function help(command?: HelpTarget) {
     ([name, definition]) => `  ${name.padEnd(16)} ${definition.description}`,
   );
   return [
-    'telegram 0.1.0 — Node.js 26.0.0+, zero npm dependencies, native Temporal',
+    'telegramctl 0.1.0 — Node.js 26.0.0+, zero npm dependencies,' +
+      ' native Temporal',
     '',
-    'Usage: telegram <command> [arguments] [options]',
-    'From source: node bin/telegram.ts <command> [arguments] [options]',
+    'Usage: telegramctl <command> [arguments] [options]',
+    'From source: node bin/telegramctl.ts <command> [arguments] [options]',
     '',
     commandLines.join('\n'),
     '',
-    'Run telegram <command> --help for command options.',
+    'Run telegramctl <command> --help for command options.',
     globalHelp + ', --version (top level)',
     'Credentials: native OS keyring by default; auth login or migrate with' +
       ' --store gopass selects gopass. No app vault or app passphrase.',
@@ -449,8 +450,8 @@ export function parseCommand(argv: string[]): ParsedCommand {
       return { command: 'help', target: 'auth' };
     if (action !== 'login' && action !== 'logout')
       throw securityError(
-        'Use telegram auth login or telegram auth logout;' +
-          ' run telegram auth --help for usage.',
+        'Use telegramctl auth login or telegramctl auth logout;' +
+          ' run telegramctl auth --help for usage.',
       );
     command = `auth ${action}`;
     rest = options;
@@ -459,7 +460,7 @@ export function parseCommand(argv: string[]): ParsedCommand {
     command = 'auth logout';
   } else {
     if (name.includes(' ') || !Object.hasOwn(commands, name))
-      throw securityError('Unknown command; run telegram --help');
+      throw securityError('Unknown command; run telegramctl --help');
     command = name as CommandName;
   }
   const definition = commands[command];
@@ -480,7 +481,7 @@ export function parseCommand(argv: string[]): ParsedCommand {
     });
   } catch {
     throw securityError(
-      `Invalid or unknown option; run telegram ${command} --help.` +
+      `Invalid or unknown option; run telegramctl ${command} --help.` +
         ' Never put secrets in arguments.',
     );
   }
@@ -501,7 +502,7 @@ export function parseCommand(argv: string[]): ParsedCommand {
   if (values.help) return { command: 'help', target: command };
   if (positionals.length !== definition.arity)
     throw securityError(
-      `Incorrect arguments for ${command}; run telegram ${command} --help`,
+      `Incorrect arguments for ${command}; run telegramctl ${command} --help`,
     );
   const positions: Partial<Record<CommandName, number[]>> = peerArguments;
   for (const index of positions[command] ?? [])
@@ -923,7 +924,7 @@ export async function main(
       : config.defaultFormat;
   const emit = (value: unknown) => {
     const json = safeJson({
-      source: 'telegram-cli',
+      source: 'telegramctl',
       untrustedContent: true,
       result: value,
     });
@@ -982,7 +983,7 @@ export async function main(
     warning(
       'WARNING: This only deletes the selected keyring/gopass' +
         ' credential. It does NOT revoke a copied session or log it' +
-        ' out at Telegram. Prefer telegram auth logout.',
+        ' out at Telegram. Prefer telegramctl auth logout.',
     );
     if (
       (await prompt('Type FORGET LOCAL SESSION to continue: ')) !==
@@ -995,7 +996,7 @@ export async function main(
   }
   const noSession = () =>
     securityError(
-      'No keyring/gopass session is configured. Run telegram auth login' +
+      'No keyring/gopass session is configured. Run telegramctl auth login' +
         ' in your trusted terminal first.',
     );
   try {

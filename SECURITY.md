@@ -12,7 +12,7 @@ Removing third-party packages reduces the npm supply-chain surface, but replaces
   loading: no runtime npm packages or dynamic code evaluation. Use
   `npm ci --ignore-scripts` to install the pinned development tools. Only the
   native-helper adapter spawns subprocesses, without a shell. It uses absolute
-  system/package paths or the trusted absolute `TELEGRAM_GOPASS_PATH` chosen
+  system/package paths or the trusted absolute `TELEGRAMCTL_GOPASS_PATH` chosen
   by the operator; it does not look up executables on `PATH` at runtime.
 - Accidental disclosure of stored authorization keys/API hashes: Linux Secret
   Service, macOS Keychain, Windows Credential Manager, or explicitly selected

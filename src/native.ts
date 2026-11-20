@@ -3,6 +3,7 @@ import { access } from 'node:fs/promises';
 import { constants } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { securityError } from './common.ts';
+import { nativeFilename } from './native-filename.ts';
 
 export type HelperResult = {
   code: number;
@@ -14,7 +15,7 @@ export const HELPER_EXISTS = 11;
 const MAX_OUTPUT = 32 * 1024;
 
 export function nativeExecutable(platform = process.platform) {
-  const name = platform === 'win32' ? 'telegram-os.exe' : 'telegram-os';
+  const name = nativeFilename(platform);
   const base = import.meta.url.endsWith('.ts')
     ? '../dist/native/'
     : '../native/';

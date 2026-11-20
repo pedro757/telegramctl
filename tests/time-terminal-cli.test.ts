@@ -263,8 +263,8 @@ test(
       },
     };
     await main(['--help'], { stdout });
-    assert.match(text, /^telegram 0\.1\.0/);
-    assert.match(text, /Usage: telegram <command>/);
+    assert.match(text, /^telegramctl 0\.1\.0/);
+    assert.match(text, /Usage: telegramctl <command>/);
     assert.match(text, /zero npm dependencies/);
     assert.match(text, /No app vault or app passphrase/);
     assert.match(text, /Node\.js 26\.0\.0\+/);
@@ -286,18 +286,15 @@ test(
     assert.equal(text, '0.1.0\n');
   },
 );
-test(
-  'The private npm package and its only executable are named' + ' telegram',
-  async () => {
-    const pkg = JSON.parse(
-      await readFile(new URL('../package.json', import.meta.url), 'utf8'),
-    );
-    assert.equal(pkg.name, 'telegram');
-    assert.equal(pkg.private, true);
-    assert.equal(pkg.engines.node, '>=26.0.0');
-    assert.deepEqual(pkg.bin, { telegram: 'dist/bin/telegram.js' });
-  },
-);
+test('The npm package and command are both telegramctl', async () => {
+  const pkg = JSON.parse(
+    await readFile(new URL('../package.json', import.meta.url), 'utf8'),
+  );
+  assert.equal(pkg.name, 'telegramctl');
+  assert.notEqual(pkg.private, true);
+  assert.equal(pkg.engines.node, '>=26.0.0');
+  assert.deepEqual(pkg.bin, { telegramctl: 'dist/bin/telegramctl.js' });
+});
 test('Auth group and command-specific help stay offline', async () => {
   let text = '';
   const options = {
@@ -311,14 +308,14 @@ test('Auth group and command-specific help stay offline', async () => {
   for (const args of [['auth'], ['auth', '--help'], ['auth', '-h']]) {
     text = '';
     await main(args, options);
-    assert.match(text, /Usage: telegram auth <login\|logout>/);
+    assert.match(text, /Usage: telegramctl auth <login\|logout>/);
     assert.match(text, /login\s+Login and save/);
     assert.match(text, /logout\s+Revoke/);
     assert.doesNotMatch(text, /Admin rights/);
   }
   text = '';
   await main(['auth', 'login', '--help'], options);
-  assert.match(text, /Usage: telegram auth login/);
+  assert.match(text, /Usage: telegramctl auth login/);
   assert.match(text, /--store keyring\|gopass/);
   assert.match(text, /--dc <id>/);
   text = '';
@@ -335,7 +332,7 @@ test(
       process.execPath,
       [
         '--import=data:text/javascript,delete%20globalThis.Temporal',
-        'bin/telegram.ts',
+        'bin/telegramctl.ts',
         '--help',
       ],
       { cwd: new URL('../', import.meta.url), encoding: 'utf8', timeout: 5000 },
@@ -344,8 +341,7 @@ test(
     assert.equal(result.stdout, '');
     assert.equal(
       result.stderr,
-      'Telegram requires Node.js 26.0.0 or newer with' +
-        ' native Temporal enabled.\n',
+      'telegramctl requires Node.js 26.0.0+ with native Temporal enabled.\n',
     );
   },
 );
@@ -360,7 +356,7 @@ test(
     );
     const result = spawnSync(
       process.execPath,
-      ['bin/telegram.ts', 'read', 'self', '--FAKE_ARG_SECRET'],
+      ['bin/telegramctl.ts', 'read', 'self', '--FAKE_ARG_SECRET'],
       { cwd: new URL('../', import.meta.url), encoding: 'utf8' },
     );
     assert.equal(result.status, 1);

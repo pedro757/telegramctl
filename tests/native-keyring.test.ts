@@ -2,6 +2,17 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { randomBytes } from 'node:crypto';
 import { HELPER_MISSING, runNative } from '../src/native.ts';
+import { nativeFilename } from '../src/native-filename.ts';
+
+test('Native helper uses the matching Windows architecture', () => {
+  assert.equal(nativeFilename('win32', 'x64'), 'telegram-os-x64.exe');
+  assert.equal(nativeFilename('win32', 'arm64'), 'telegram-os-arm64.exe');
+  assert.equal(nativeFilename('darwin', 'arm64'), 'telegram-os');
+  assert.throws(
+    () => nativeFilename('win32', 'ia32'),
+    /supports x64 and ARM64/,
+  );
+});
 
 const platformSupported = ['darwin', 'win32'].includes(process.platform);
 const enabled = platformSupported && process.env.TELEGRAM_TEST_KEYRING === '1';

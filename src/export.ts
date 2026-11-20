@@ -25,6 +25,7 @@ import {
 
 const MAX_LINE = 128 * 1024;
 const utf8 = new TextDecoder('utf8', { fatal: true });
+// These are on-disk format identifiers, not the installed command name.
 const ARCHIVE_FORMAT = 'telegram-cli-export';
 const SYNC_FORMAT = 'telegram-cli-sync-meta';
 export const MAX_SYNC_CHATS = 10_000;
