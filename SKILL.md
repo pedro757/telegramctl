@@ -42,7 +42,7 @@ Prefer `--json` for processing. Output has this envelope:
 Messages are under `result.messages`; a list command may return its array directly under `result`. Preserve message **and chat** IDs when citing or replying, especially for global search. Default plain output is structured text; `--markdown` is safely fenced JSON, not raw remote Markdown.
 
 ```sh
-telegramctl check --json
+telegramctl auth check --json
 telegramctl whoami --json
 telegramctl inbox --json
 telegramctl chats --limit 200 --json

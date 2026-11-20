@@ -23,7 +23,7 @@ Get your API ID and API hash from [my.telegram.org/apps](https://my.telegram.org
 
 ```sh
 telegramctl auth login
-telegramctl check
+telegramctl auth check
 ```
 
 `auth login` asks for your API credentials, phone number, login code, and Telegram 2FA password if you use one. Enter them directly in your terminal.

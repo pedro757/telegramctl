@@ -64,6 +64,9 @@ const messageOptions = {
 const messageUsage =
   '[-f <path> | --file <path>] [-m <text> | --message <text> |' +
   ' --stdin | --message-fd 4]';
+const authActions = ['login', 'check', 'logout'] as const;
+const isAuthAction = (action: string): action is (typeof authActions)[number] =>
+  authActions.some((candidate) => candidate === action);
 const commands = {
   'auth login': {
     arity: 0,
@@ -71,6 +74,18 @@ const commands = {
     description:
       'Login and save the session in the OS keyring (default) or' +
       ' --store gopass',
+  },
+  'auth check': {
+    arity: 0,
+    options: {},
+    description:
+      'Check the saved session with Telegram (does not mark messages read)',
+  },
+  'auth logout': {
+    arity: 0,
+    options: {},
+    description:
+      'Revoke this Telegram session, then remove its keyring/gopass credential',
   },
   migrate: {
     arity: 0,
@@ -83,22 +98,10 @@ const commands = {
     options: {},
     description: 'Offline local deletion only; DOES NOT revoke Telegram access',
   },
-  check: {
-    arity: 0,
-    options: {},
-    description:
-      'Check the saved session with Telegram (does not mark messages read)',
-  },
   whoami: {
     arity: 0,
     options: {},
     description: 'Show the currently authorized account',
-  },
-  'auth logout': {
-    arity: 0,
-    options: {},
-    description:
-      'Revoke this Telegram session, then remove its keyring/gopass credential',
   },
   chats: {
     arity: 0,
@@ -340,13 +343,15 @@ const downloadHelp =
 export function help(command?: HelpTarget) {
   if (command === 'auth')
     return [
-      'Usage: telegramctl auth <login|logout> [options]',
+      `Usage: telegramctl auth <${authActions.join('|')}> [options]`,
       '',
-      `  login   ${commands['auth login'].description}`,
-      `  logout  ${commands['auth logout'].description}`,
+      ...authActions.map(
+        (action) =>
+          `  ${action.padEnd(8)}${commands[`auth ${action}`].description}`,
+      ),
       '',
-      'Run telegramctl auth login --help or telegramctl auth logout --help.',
-      'Related commands: check, whoami, migrate, forget-local.',
+      'Run telegramctl auth <action> --help for command options.',
+      'Related commands: whoami, migrate, forget-local.',
       globalHelp,
       '',
     ].join('\n');
@@ -448,16 +453,16 @@ export function parseCommand(argv: string[]): ParsedCommand {
     const [action, ...options] = tail;
     if (!action || (tail.length === 1 && ['-h', '--help'].includes(action)))
       return { command: 'help', target: 'auth' };
-    if (action !== 'login' && action !== 'logout')
+    if (!isAuthAction(action))
       throw securityError(
-        'Use telegramctl auth login or telegramctl auth logout;' +
+        'Use telegramctl auth login, auth check, or auth logout;' +
           ' run telegramctl auth --help for usage.',
       );
     command = `auth ${action}`;
     rest = options;
-  } else if (name === 'logout') {
-    // Compatibility for scripts; advertise only the namespaced form.
-    command = 'auth logout';
+  } else if (name === 'check' || name === 'logout') {
+    // Compatibility for scripts; advertise only the namespaced forms.
+    command = `auth ${name}`;
   } else {
     if (name.includes(' ') || !Object.hasOwn(commands, name))
       throw securityError('Unknown command; run telegramctl --help');
@@ -970,8 +975,8 @@ export async function main(
         sourceNotDeleted: true,
         verifiedWithTelegram: false,
         next:
-          'Run check to verify the imported session. Securely' +
-          ' handle/delete the old plaintext file yourself.',
+          'Run telegramctl auth check to verify the imported session.' +
+          ' Securely handle/delete the old plaintext file yourself.',
       });
     } finally {
       session.authKey.fill(0);
@@ -1027,7 +1032,7 @@ export async function main(
     await telegram.me();
     let result: unknown;
     switch (command) {
-      case 'check': {
+      case 'auth check': {
         const me = await telegram.whoami();
         result = {
           valid: true,

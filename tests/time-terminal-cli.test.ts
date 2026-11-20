@@ -11,7 +11,13 @@ import {
 } from '../src/common.ts';
 import { readFile, readdir } from 'node:fs/promises';
 import { parseCommand, main } from '../src/cli.ts';
-import { scratch, windows } from './support.ts';
+import {
+  fakeCredentials,
+  fakeRpc,
+  scratch,
+  session,
+  windows,
+} from './support.ts';
 import { join } from 'node:path';
 
 test(
@@ -308,8 +314,9 @@ test('Auth group and command-specific help stay offline', async () => {
   for (const args of [['auth'], ['auth', '--help'], ['auth', '-h']]) {
     text = '';
     await main(args, options);
-    assert.match(text, /Usage: telegramctl auth <login\|logout>/);
+    assert.match(text, /Usage: telegramctl auth <login\|check\|logout>/);
     assert.match(text, /login\s+Login and save/);
+    assert.match(text, /check\s+Check the saved session/);
     assert.match(text, /logout\s+Revoke/);
     assert.doesNotMatch(text, /Admin rights/);
   }
@@ -319,10 +326,40 @@ test('Auth group and command-specific help stay offline', async () => {
   assert.match(text, /--store keyring\|gopass/);
   assert.match(text, /--dc <id>/);
   text = '';
+  await main(['auth', 'check', '--help'], options);
+  assert.match(text, /Usage: telegramctl auth check/);
+  assert.match(text, /does not mark messages read/);
+  text = '';
   await main(['download', '--help'], options);
   assert.match(text, /system Downloads folder/);
   assert.match(text, /-o, --output/);
   assert.doesNotMatch(text, /Admin rights/);
+});
+test('Auth check verifies the saved account without mutations', async (t) => {
+  const directory = await scratch(t);
+  const fake = fakeCredentials(directory);
+  await fake.store.create(session());
+  const rpc = fakeRpc((name) => assert.fail(`Unexpected RPC: ${name}`));
+  let text = '';
+  await main(['auth', 'check', '--state-dir', directory, '--json', '--quiet'], {
+    stdout: {
+      write(value: string) {
+        text += value;
+      },
+    },
+    makeStore: () => fake.store,
+    makeClient: () => ({ ...rpc, open: async () => {}, close() {} }),
+  });
+  const result = JSON.parse(text).result;
+  assert.equal(result.valid, true);
+  assert.equal(result.accountId, 'user:1');
+  assert.equal(result.storage, 'keyring');
+  assert.deepEqual(
+    rpc.calls.map(({ name }) => name),
+    ['users.GetUsers'],
+  );
+  assert.equal(fake.records.size, 1);
+  assert.equal((await readdir(directory)).includes('audit.jsonl'), false);
 });
 test(
   'The executable reports a clean version requirement when' +
@@ -351,7 +388,7 @@ test(
   async (t) => {
     const directory = await scratch(t);
     await assert.rejects(
-      main(['check', '--state-dir', join(directory, 'missing')]),
+      main(['auth', 'check', '--state-dir', join(directory, 'missing')]),
       /No keyring\/gopass session/,
     );
     const result = spawnSync(
@@ -900,6 +937,10 @@ test(
     assert.equal(parseCommand(['auth', 'login', '--dc', '3']).values.dc, '3');
     assert.equal(parseCommand(['auth', 'logout']).command, 'auth logout');
     assert.equal(parseCommand(['logout']).command, 'auth logout');
+    assert.equal(parseCommand(['auth', 'check']).command, 'auth check');
+    assert.equal(parseCommand(['check']).command, 'auth check');
+    assert.throws(() => parseCommand(['auth', 'check', 'extra']), /Incorrect/);
+    assert.throws(() => parseCommand(['auth', 'check', '--store', 'gopass']));
     assert.throws(() => parseCommand(['auth', 'logout', '--store', 'gopass']));
     assert.throws(() => parseCommand(['auth', 'unknown']), /auth --help/);
     assert.throws(

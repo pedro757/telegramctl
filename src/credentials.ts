@@ -302,8 +302,8 @@ export function credentialStore(
     const { absolute } = await location();
     if (await existsPrivate(absolute, 'session.json'))
       throw securityError(
-        'A session is already configured. Use check, logout, or' +
-          ' explicitly forget-local first.',
+        'A session is already configured. Use auth check or auth logout,' +
+          ' or explicitly forget-local first.',
       );
     if (run === runCredentialCommand) await helperFor(backend);
   }
