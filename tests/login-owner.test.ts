@@ -1,9 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { writeFile, readFile, mkdir, symlink } from 'node:fs/promises';
+import { readFile, mkdir, symlink } from 'node:fs/promises';
 import { join } from 'node:path';
 import { authenticate } from '../src/cli.ts';
-import { privateDirectory } from '../src/files.ts';
+import { atomicPrivateWrite, privateDirectory } from '../src/files.ts';
 import { createTelegram, rememberEntity } from '../src/telegram.ts';
 import {
   securityError,
@@ -510,10 +510,10 @@ test(
                 if (name === 'auth.SendCode')
                   return { _: 'auth.SentCode', phoneCodeHash: 'fake' };
                 if (name === 'auth.SignIn') {
-                  await writeFile(
-                    join(directory, 'session.json'),
+                  await atomicPrivateWrite(
+                    directory,
+                    'session.json',
                     'PREEXISTING_VALUE',
-                    { mode: 0o600 },
                   );
                   return { _: 'auth.Authorization', user: user(1) };
                 }

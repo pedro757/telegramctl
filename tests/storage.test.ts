@@ -164,12 +164,8 @@ test(
         apiHash: session().apiHash,
         sessionString: legacyString(),
       });
-    await writeFile(join(checked, 'legacy.json5'), config(12345), {
-      mode: 0o600,
-    });
-    await writeFile(join(actual, 'legacy.json5'), config(54321), {
-      mode: 0o600,
-    });
+    await atomicPrivateWrite(checked, 'legacy.json5', config(12345));
+    await atomicPrivateWrite(actual, 'legacy.json5', config(54321));
     const filename = `${checked}/alias/../legacy.json5`;
     assert.equal((await readPrivateFile(filename)).toString(), config(12345));
     assert.equal((await loadLegacy(filename)).apiId, 12345);
@@ -278,12 +274,12 @@ test(
   async (t) => {
     const root = await scratch(t),
       filename = join(root, 'old.json5');
-    await writeFile(
-      filename,
+    await atomicPrivateWrite(
+      root,
+      'old.json5',
       "{apiId:12345,apiHash:'0123456789abcdef0123456789abcdef'," +
         `sessionString:'${legacyString()}',writeEnabled:'true',` +
         "defaultFormat:'json',}",
-      { mode: 0o600 },
     );
     const imported = await loadLegacy(filename);
     assert.equal(imported.writeEnabled, undefined);

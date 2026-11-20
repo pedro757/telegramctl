@@ -11,7 +11,11 @@ import {
 } from 'node:fs/promises';
 import { join } from 'node:path';
 import { main, parseCommand } from '../src/cli.ts';
-import { downloadDirectory, openPrivateFile } from '../src/files.ts';
+import {
+  downloadDirectory,
+  openPrivateFile,
+  privateDirectory,
+} from '../src/files.ts';
 import { createTelegram, MAX_DOWNLOAD_MIB } from '../src/telegram.ts';
 import { createMediaRpc, createRpcClient } from '../src/rpc.ts';
 import { rpcError } from '../src/common.ts';
@@ -197,7 +201,7 @@ test('Default Downloads keeps its existing permissions', async (t) => {
     output = join(root, 'Downloads'),
     fake = fakeCredentials(state);
   await fake.store.create(session());
-  await mkdir(output, { mode: 0o755 });
+  await privateDirectory(output);
   if (windows) publicWindowsRead(output, true);
   else await chmod(output, 0o755);
   const rpc = fakeRpc((name) => {
@@ -476,7 +480,7 @@ test('Refreshes a file reference without changing identity', async (t) => {
 test('Does not overwrite a destination symlink', async (t) => {
   const directory = await scratch(t);
   const output = join(directory, 'images');
-  await mkdir(output, { mode: 0o700 });
+  await privateDirectory(output);
   const outside = join(directory, 'outside'),
     original = windows ? join(outside, 'original') : outside;
   if (windows) await mkdir(outside);

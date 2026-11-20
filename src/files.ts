@@ -357,14 +357,24 @@ async function temporary(directory: string, download = false) {
     handle,
     async commit(target: string, { replace = true } = {}) {
       safeFilename(target);
+      const destination = join(directory, target);
       if (replace) await existsPrivate(directory, target);
+      else {
+        // Windows may return access denied rather than EEXIST for a junction.
+        // lstat never follows it; the hard link still enforces no replacement.
+        const existing = await lstat(destination).catch((error) => {
+          if (error.code !== 'ENOENT') throw error;
+        });
+        if (existing)
+          throw securityError('Refusing to replace an existing file');
+      }
       await handle.sync();
       await handle.close();
       closed = true;
-      if (replace) await rename(filename, join(directory, target));
+      if (replace) await rename(filename, destination);
       else {
         try {
-          await link(filename, join(directory, target));
+          await link(filename, destination);
         } catch (error) {
           if ((error as NodeJS.ErrnoException).code === 'EEXIST')
             throw securityError('Refusing to replace an existing file');

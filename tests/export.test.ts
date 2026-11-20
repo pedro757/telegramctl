@@ -19,6 +19,7 @@ import {
   rememberEntity,
 } from '../src/telegram.ts';
 import { isSecurityError } from '../src/common.ts';
+import { atomicPrivateWrite, privateDirectory } from '../src/files.ts';
 import {
   scratch,
   channel,
@@ -164,9 +165,12 @@ test(
   async (t) => {
     const root = await scratch(t),
       output = join(root, 'export');
-    await mkdir(output, { mode: 0o700 });
     const filename = join(output, 'sync-meta.json');
-    await writeFile(filename, '{"unrelated":"user work"}', { mode: 0o600 });
+    await atomicPrivateWrite(
+      output,
+      'sync-meta.json',
+      '{"unrelated":"user work"}',
+    );
     const telegram = source([channel(1)], { 'channel:1': [message(1)] });
     await assert.rejects(
       syncHistory(telegram, { output }),
@@ -247,7 +251,7 @@ test(
     const root = await scratch(t),
       output = join(root, 'export'),
       telegram = source([channel(1)], {});
-    await mkdir(output, { mode: 0o700 });
+    await privateDirectory(output);
     const header =
       JSON.stringify({
         format: 'telegram-cli-export',
@@ -259,10 +263,10 @@ test(
     const row = JSON.stringify(message(1)) + '\n',
       filename = join(output, 'chat-channel-1.jsonl');
     for (const contents of [header + row + row, header + row.trimEnd()]) {
-      await writeFile(filename, contents, { mode: 0o600 });
+      await atomicPrivateWrite(output, 'chat-channel-1.jsonl', contents);
       await assert.rejects(
         syncHistory(telegram, { output, resume: true }),
-        isSecurityError,
+        /Invalid or duplicate existing export record|truncated final record/,
       );
       assert.equal(await readFile(filename, 'utf8'), contents);
     }
@@ -324,7 +328,6 @@ test(
   async (t) => {
     const root = await scratch(t),
       output = join(root, 'export');
-    await mkdir(output, { mode: 0o700 });
     const telegram = source([channel(1)], {}),
       filename = join(output, 'chat-channel-1.jsonl');
     for (const version of [1, 2]) {
@@ -335,7 +338,7 @@ test(
           untrusted: true,
           chat: { id: 'channel:1' },
         }) + '\n';
-      await writeFile(filename, contents, { mode: 0o600 });
+      await atomicPrivateWrite(output, 'chat-channel-1.jsonl', contents);
       await assert.rejects(
         syncHistory(telegram, { output, resume: true }),
         /legacy\/unbound archives/,
@@ -343,14 +346,14 @@ test(
       assert.equal(await readFile(filename, 'utf8'), contents);
     }
     for (const version of [1, 2]) {
-      await writeFile(
-        join(output, 'sync-meta.json'),
+      await atomicPrivateWrite(
+        output,
+        'sync-meta.json',
         JSON.stringify({
           format: 'telegram-cli-sync-meta',
           version,
           chats: {},
         }),
-        { mode: 0o600 },
       );
       await assert.rejects(
         syncHistory(telegram, { output, resume: true }),
@@ -366,7 +369,6 @@ test(
   async (t) => {
     const root = await scratch(t),
       output = join(root, 'export');
-    await mkdir(output, { mode: 0o700 });
     const chats = Object.create(null);
     for (let i = 0; i < MAX_SYNC_CHATS; i++) {
       const id = (9223372036854775807n - BigInt(i)).toString();
@@ -377,8 +379,9 @@ test(
       };
     }
     const filename = join(output, 'sync-meta.json');
-    await writeFile(
-      filename,
+    await atomicPrivateWrite(
+      output,
+      'sync-meta.json',
       JSON.stringify(
         {
           format: 'telegram-cli-sync-meta',
@@ -389,7 +392,6 @@ test(
         null,
         2,
       ),
-      { mode: 0o600 },
     );
     assert.ok((await stat(filename)).size > 1024 * 1024);
     const telegram = source([], {});

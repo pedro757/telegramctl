@@ -11,6 +11,7 @@ import {
   credentialExecutable,
 } from '../src/credentials.ts';
 import { HELPER_MISSING } from '../src/native.ts';
+import { atomicPrivateWrite } from '../src/files.ts';
 import { isSecurityError } from '../src/common.ts';
 import { scratch, session, fakeCredentials, windows } from './support.ts';
 
@@ -123,10 +124,10 @@ test(
       other = await scratch(t),
       fake = fakeCredentials(directory);
     await fake.store.create(session());
-    await writeFile(
-      join(other, 'session.json'),
+    await atomicPrivateWrite(
+      other,
+      'session.json',
       await readFile(join(directory, 'session.json')),
-      { mode: 0o600 },
     );
     await assert.rejects(
       credentialStore(other, { run: fake.run }).load(),
@@ -229,9 +230,11 @@ test(
       run: async (backend, args, input) => {
         const result = await fake.run(backend, args, input);
         if (['store', 'credential-put'].includes(args[0]))
-          await writeFile(join(directory, 'session.json'), 'OTHER USER DATA', {
-            mode: 0o600,
-          });
+          await atomicPrivateWrite(
+            directory,
+            'session.json',
+            'OTHER USER DATA',
+          );
         return result;
       },
     });

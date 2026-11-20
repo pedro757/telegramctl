@@ -596,7 +596,7 @@ test(
     const directory = await scratch(t);
     const child = `
 import assert from 'node:assert/strict';
-import { writeFile } from 'node:fs/promises';
+import { atomicPrivateWrite } from './src/files.ts';
 import { main } from './src/cli.ts';
 import { fakeCredentials, session } from './tests/support.ts';
 const directory = process.argv[1],
@@ -611,14 +611,14 @@ else {
   data.writeUInt16BE(443, 5);
   const source = directory + '/legacy.json',
     value = session();
-  await writeFile(
-    source,
+  await atomicPrivateWrite(
+    directory,
+    'legacy.json',
     JSON.stringify({
       apiId: value.apiId,
       apiHash: value.apiHash,
       sessionString: '1' + data.toString('base64'),
     }),
-    { mode: 0o600 },
   );
   args.push('--from', source);
 }
