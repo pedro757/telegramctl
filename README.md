@@ -209,7 +209,7 @@ in the [schema provenance](src/protocol/provenance.json). Neither is needed at
 runtime.
 
 Maintainers: download `telegramctl-npm` from a passing
-[Test and package run](https://github.com/pedro757/telegram-cli/actions).
+[Test and package run](https://github.com/pedro757/telegramctl/actions).
 Sign in with `npm login`, then publish the extracted `.tgz` with
 `npm publish ./telegramctl-<version>.tgz --access public`.
 Do not publish from a build that only contains one platform's helper.

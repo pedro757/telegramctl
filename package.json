@@ -2,14 +2,14 @@
   "name": "telegramctl",
   "version": "0.1.0",
   "description": "Dependency-free Telegram CLI and agent skill",
-  "homepage": "https://github.com/pedro757/telegram-cli#readme",
+  "homepage": "https://github.com/pedro757/telegramctl#readme",
   "bugs": {
-    "url": "https://github.com/pedro757/telegram-cli/issues"
+    "url": "https://github.com/pedro757/telegramctl/issues"
   },
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/pedro757/telegram-cli.git"
+    "url": "git+https://github.com/pedro757/telegramctl.git"
   },
   "bin": {
     "telegramctl": "dist/bin/telegramctl.js"
