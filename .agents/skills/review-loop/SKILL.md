@@ -9,7 +9,7 @@ description: Use when the user says "review-loop" to review, fix, and push selec
 
 Use the user's requested authors, counts, PR numbers/URLs, branches, or dates. Default to open PRs in this repository, with no date limit; “last” means newest by creation time. Ask if the selection is missing or unclear.
 
-Examples: `review-loop last pr of tomi2440`, `review-loop last three open prs`.
+Examples: `review-loop last pr of someuser440`, `review-loop last three open prs`.
 
 ## Run
 
